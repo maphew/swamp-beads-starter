@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "swamp_beads_starter",
+  "project_id": "17920a8c-5749-4184-b32a-bc5f15512d10"
+}
