@@ -20,6 +20,7 @@ README.md                  this file
 docs/
   coexistence.md           every difference from a plain bd/swamp install, and why
   audit-hook.md            swamp's per-Bash audit hooks, and the toggle
+  walkthrough.md           a day in this repo: both loops and the handoff
 scripts/
   audit-hook.sh            status | enable | disable the audit hooks
 prompts/
@@ -107,10 +108,14 @@ against an over-eager agent committing half-finished work.
 
 ## Known rough edges
 
-- `swamp repo upgrade` can reinstall the audit hooks; re-run
-  `scripts/audit-hook.sh disable` after an upgrade.
+- `swamp repo upgrade` *does* reinstall the audit hooks (verified) — re-run
+  `scripts/audit-hook.sh disable` after every upgrade. `scripts/audit-hook.sh
+  status` is the one-line check.
 - There is no way yet to tell swamp "`bd` is an approved bypass, not a
-  violation". Filed upstream; see `docs/audit-hook.md`.
+  violation". Filed upstream as **swamp-club Lab #4410**
+  (https://swamp-club.com/lab/4410) and tracked here as bead
+  `swamp-beads-starter-di0`; see `docs/audit-hook.md`. When it ships, re-enable
+  the hooks and register `bd *` / `gh *`.
 - `swamp start` requires a swamp-club account; `bd` does not. Don't mix them in a
   headless workflow step.
 - Two datastores (`.beads/` Dolt, `.swamp/datastore.db`) mean no atomic

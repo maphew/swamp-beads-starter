@@ -25,9 +25,9 @@
 # Nothing global is touched. `bd`'s own SessionStart/PreCompact hooks live in
 # `.claude/settings.json` and are never modified by this script.
 #
-# Caveat: `swamp repo upgrade` (and `swamp repo init --force`) can rewrite that
-# file and put the hooks back. Re-run `disable` afterwards; `status` will tell
-# you.
+# Caveat: `swamp repo upgrade` (and `swamp repo init --force`) rewrites that file
+# and puts the hooks back — verified. Re-run `disable` afterwards; `status` tells
+# you which state you are in.
 #
 # Usage
 # -----
@@ -126,7 +126,7 @@ disable() {
   ' "$settings" | write_atomic
   after="$(count_hooks)"
   printf 'audit-hook: disabled (%s -> %s hooks)\n' "$before" "$after"
-  printf 'note      : `swamp repo upgrade` may reinstall them; re-run disable if so\n'
+  printf 'note      : `swamp repo upgrade` reinstalls them; re-run disable after an upgrade\n'
 }
 
 enable() {

@@ -82,8 +82,9 @@ The script edits `.claude/settings.local.json` only, atomically, preserving
 `permissions.allow` and every other hook. It refuses to run outside a git repo
 and requires `jq`.
 
-**Re-check after upgrades.** `swamp repo upgrade` can rewrite the settings file
-and reinstall the hooks. Habit:
+**Re-check after upgrades.** `swamp repo upgrade` rewrites
+`.claude/settings.local.json` and reinstalls the hooks — verified: disabling, then
+running `swamp repo upgrade --tool claude`, brings both hooks back. Habit:
 
 ```bash
 swamp repo upgrade --tool claude && scripts/audit-hook.sh status
