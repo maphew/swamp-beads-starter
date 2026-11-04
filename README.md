@@ -27,6 +27,7 @@ AGENTS.md                  single source of truth: swamp's managed block, the co
                            then beads' managed block (both tool blocks are generated)
 CLAUDE.md                  one line: @AGENTS.md
 README.md                  this file
+LICENSE                    MIT
 docs/
   coexistence.md           every difference from a plain bd/swamp install, and why
   audit-hook.md            swamp's per-Bash audit hooks, and the toggle
@@ -179,6 +180,11 @@ bd config get agent.profile
 `team-maintainer` is right for repos you own and actively drive. Use
 `conservative` for shared, upstream, or review-gated repos — it also protects
 against an over-eager agent committing half-finished work.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copy the layout into your own project freely; the
+`bd` and `swamp` generated blocks in `AGENTS.md` carry their own tools' terms.
 
 ## Known rough edges
 
