@@ -290,6 +290,13 @@ No shared transaction. A workflow that closes a bead and records a run cannot be
 atomic; order it so a retry is safe (close the bead last, or make the step
 idempotent).
 
+There is a third wrinkle unique to *template* repos: `.beads/config.yaml` is
+tracked and can hold `sync.remote`, the URL `bd dolt push` adopted. A project
+created from this template inherits that URL, and `bd init` will bootstrap the
+template author's issue history into it. `scripts/setup.sh` reconciles the line
+with the checkout's own `origin` first (repoint, or drop when there is no
+origin), so a derived repo starts with an empty backlog. Verified both ways.
+
 ## M. Auth
 
 `swamp` gates nearly everything on swamp-club sign-in (`auth_gate_blocked`).

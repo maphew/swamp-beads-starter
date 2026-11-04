@@ -103,6 +103,12 @@ runs `bd init` when the database is missing — which bootstraps the issue histo
 from the git remote (`refs/dolt/data`) in a few seconds. `bd ready` then lists the
 two example beads.
 
+**A repo derived from this template must not inherit this project's issues.**
+`.beads/config.yaml` is tracked and can carry `sync.remote` pointing at the source
+repo, and `bd init` will bootstrap from it. `setup.sh` therefore reconciles that
+line with *your* `origin` before bd runs: repoint when it differs, drop it when
+there is no origin at all. A derived repo starts with an empty backlog.
+
 ### Existing repo (retrofit)
 
 ```bash
@@ -206,6 +212,9 @@ MIT — see [LICENSE](LICENSE). Copy the layout into your own project freely; th
   configure, so nothing reports `bd` as a violation — but you also have no
   per-command trail. Fields differ from the claude target; see
   `docs/audit-hook.md`.
+- If you derive a repo from this template, `.beads/config.yaml` arrives with
+  `sync.remote` pointing here; `scripts/setup.sh` fixes it, but if you skip the
+  script, `bd init` will import this project's example issues.
 - There is no way yet to tell swamp "`bd` is an approved bypass, not a
   violation" **when claude is enrolled**. Filed upstream as **swamp-club Lab
   #4410** (https://swamp-club.com/lab/4410), tracked here as bead

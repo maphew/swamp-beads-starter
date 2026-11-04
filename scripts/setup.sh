@@ -13,6 +13,8 @@
 #   2. AGENTS.md                 (created only if missing)
 #   3. CLAUDE.md = @AGENTS.md    BEFORE bd init, or bd writes a duplicate block
 #   4. swamp repo init|upgrade   (--tool codex => managed block in AGENTS.md)
+#   4c. beads sync.remote        (repoint at this origin; a template copy would
+#                                 otherwise bootstrap the template's issues)
 #   5. bd init|setup             (clone with no DB gets `bd init`; block -> AGENTS.md)
 #   6. normalize AGENTS.md       (strip duplicate "BEADS * SETUP" blocks)
 #   7. drop bd's extra CLI enrolments (.codex/, .cursor/) unless requested
@@ -128,6 +130,46 @@ append_include() {
     printf '\n%s\n' "$INCLUDE" >>"$f"
   else
     printf '%s\n' "$INCLUDE" >"$f"
+  fi
+}
+
+
+# A tracked `.beads/config.yaml` can carry `sync.remote` for the repo it was
+# cloned FROM. Deriving a project from a template therefore inherits that URL,
+# and `bd init` happily bootstraps the template's issue history into the new
+# project. Reconcile it with this checkout's own origin before bd runs.
+reconcile_beads_sync() {
+  local cfg=".beads/config.yaml" want="" origin current tmp
+  [[ -f "$cfg" ]] || return 0
+  if origin="$(git remote get-url origin 2>/dev/null)"; then
+    want="git+${origin%.git}"
+  fi
+  current="$(awk '/^sync:[[:space:]]*$/ {f=1; next} f && /^[[:space:]]+remote:/ {gsub(/^[[:space:]]*remote:[[:space:]]*"?|"?[[:space:]]*$/, ""); print; exit}' "$cfg")"
+  # `bd` stores the URL with a trailing `.git`; the comparison should not care.
+  if [[ "${current%.git}" == "${want%.git}" ]]; then
+    say "  beads sync.remote matches this origin"
+    return 0
+  fi
+  say "  beads sync.remote is '${current:-<none>}', origin is '${want:-<none>}'"
+  if [[ "$want" == "" ]]; then
+    say "  no git origin — dropping sync.remote so bd cannot pull a foreign history"
+  else
+    say "  repointing sync.remote at this repo (a template/derived copy?)"
+  fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    say "  [dry-run] would rewrite .beads/config.yaml sync block"
+    return 0
+  fi
+  tmp="$(mktemp "$cfg.XXXXXX")"
+  # Drop the whole `sync:` block (key + indented children)...
+  awk 'BEGIN{skip=0}
+       /^sync:[[:space:]]*$/ {skip=1; next}
+       skip==1 && /^[[:space:]]/ {next}
+       {skip=0; print}' "$cfg" >"$tmp"
+  mv -f "$tmp" "$cfg"
+  # ...and re-add it only when there is an origin to sync with.
+  if [[ -n "$want" ]]; then
+    printf '\nsync:\n    remote: "%s"\n' "$want" >>"$cfg"
   fi
 }
 
@@ -254,6 +296,8 @@ step "beads repository"
 bd_init_args=(--agents-file "$AGENTS_FILE" --agents-profile minimal)
 bd_init_help="$(bd init --help 2>&1 || true)"
 [[ "$bd_init_help" == *"--non-interactive"* ]] && bd_init_args+=(--non-interactive)
+reconcile_beads_sync
+
 # A git clone carries .beads/ (config, hooks, metadata) but NOT the Dolt
 # database — the directory existing proves nothing. Probe the database itself.
 if bd ready --json >/dev/null 2>&1; then
