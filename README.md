@@ -22,6 +22,7 @@ docs/
   audit-hook.md            swamp's per-Bash audit hooks, and the toggle
   walkthrough.md           a day in this repo: both loops and the handoff
 scripts/
+  setup.sh                 one-command bootstrap (init order, profile, hook state)
   audit-hook.sh            status | enable | disable the audit hooks
 prompts/
   audit-hook-toggle.md     copy-paste prompt for any agent
@@ -71,27 +72,49 @@ Full text: the top of `AGENTS.md`. Rationale: `docs/coexistence.md`.
 ### New repo
 
 ```bash
-mkdir my-project && cd my-project && git init
-# copy the skeleton, then re-init both tools so ids/paths are yours
-cp -r /path/to/swamp-beads-starter/{AGENTS.md,CLAUDE.md,docs,scripts,prompts,plans,tasks,.gitignore} .
-swamp repo init          # prepends its managed block to CLAUDE.md
-bd init                  # sees @AGENTS.md in CLAUDE.md, so it only touches AGENTS.md
-bd config set agent.profile team-maintainer
-scripts/audit-hook.sh disable
+mkdir my-project && cd my-project
+cp -r /path/to/swamp-beads-starter/{AGENTS.md,docs,scripts,prompts,plans,tasks,.gitignore} .
+# CLAUDE.md is deliberately NOT copied: setup.sh creates it as @AGENTS.md
+scripts/setup.sh                  # git init, include, swamp, bd, profile, hooks, verify
 ```
 
-`AGENTS.md` and `CLAUDE.md` also have one-line onboarding notes in `docs/`; read
-`docs/coexistence.md` §B before changing the order of those two commands.
+Then edit the contract section of `AGENTS.md` to your project.
 
 ### Existing repo (retrofit)
 
-1. Write `AGENTS.md` (or append the contract section to yours).
-2. Make `CLAUDE.md` end with `@AGENTS.md` and delete any duplicated beads block
-   from it.
-3. `swamp repo upgrade --tool claude` (or `repo init` if swamp isn't set up).
-4. `bd setup claude` — it detects the include and updates `AGENTS.md` only.
-5. `bd config set agent.profile <conservative|minimal|team-maintainer>`.
-6. `scripts/audit-hook.sh disable` if you don't want per-Bash audit records.
+```bash
+cp -r /path/to/swamp-beads-starter/{scripts,docs,prompts,plans,tasks,AGENTS.md} .
+scripts/setup.sh --profile conservative
+```
+
+`setup.sh` is idempotent and safe on an already-initialized repo: it upgrades
+swamp instead of re-initializing, skips `bd init` when `.beads/` exists, strips a
+duplicate beads block out of `CLAUDE.md` (backing it up to
+`CLAUDE.md.pre-setup.bak`), then re-appends the `@AGENTS.md` include.
+
+### What `scripts/setup.sh` does, in order
+
+1. `git init -b main` if you are not in a repo (`--no-git` to refuse).
+2. Creates `AGENTS.md` **only if missing** (stub with a short contract).
+3. Creates `CLAUDE.md` as `@AGENTS.md`, or appends the include to an existing
+   one — before `bd init`, so `bd` does not duplicate its block.
+4. `swamp repo init` (or `repo upgrade` when already initialized) with `--tool`.
+5. `bd init` (or `bd setup <tool>` when already initialized).
+6. `bd config set agent.profile <profile>`.
+7. `scripts/audit-hook.sh disable` unless `--keep-audit-hooks`.
+8. Verifies the layout and exits 2 if anything drifted.
+
+```bash
+scripts/setup.sh --help
+scripts/setup.sh --dry-run                     # print every command, change nothing
+scripts/setup.sh --profile conservative        # review-gated repo
+scripts/setup.sh --tool claude --tool codex    # multi-tool
+scripts/setup.sh --keep-audit-hooks            # keep the per-Bash audit trail
+```
+
+Note: `bd init` enrols every CLI it detects, so a claude-only setup can still
+grow `.codex/` and `.cursor/`. The script reports them; remove them (or keep
+them and run `swamp repo upgrade --tool codex` so swamp matches).
 
 ## Switching git authority
 

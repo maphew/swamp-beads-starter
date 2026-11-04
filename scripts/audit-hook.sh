@@ -153,7 +153,8 @@ case "${1:-status}" in
   disable) disable; status ;;
   enable)  enable;  status ;;
   -h|--help|help)
-    sed -n '2,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    awk '/^# audit-hook\.sh/{p=1} /^set -euo pipefail/{p=0} p' "${BASH_SOURCE[0]}" \
+      | sed 's/^# \{0,1\}//'
     ;;
   *)
     die "unknown action '$1' (use: status | enable | disable | --help)"

@@ -82,6 +82,10 @@ swamp repo init      # prepends its block above the include
 bd init              # appends beads block to AGENTS.md only
 ```
 
+`scripts/setup.sh` encodes exactly this order, and repairs the wrong order by
+stripping the duplicate out of `CLAUDE.md` (backup kept) before appending the
+include.
+
 If you did it the other way and `CLAUDE.md` grew a beads block, delete it (keep
 `@AGENTS.md`) and run `bd setup claude` to confirm `bd` now targets
 `AGENTS.md`.
@@ -244,11 +248,13 @@ Run after any change to the layout, and after `swamp repo upgrade` or
 `bd init` / `bd setup`:
 
 ```bash
+scripts/setup.sh --dry-run      # preview every action, change nothing (safest first check)
 grep -n "swamp managed\|BEADS INTEGRATION\|@AGENTS.md" AGENTS.md CLAUDE.md   # A, B
 scripts/audit-hook.sh status                                                  # D, E
 bd config get agent.profile                                                   # F
 bd doctor --check=conventions                                                 # beads sanity
 swamp doctor extensions                                                       # swamp sanity
+scripts/setup.sh                # idempotent re-run: upgrades, disables hooks, verifies; exit 2 on drift
 swamp repo upgrade --tool claude && git diff                                  # drift check
 ```
 
