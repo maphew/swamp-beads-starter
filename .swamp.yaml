@@ -2,6 +2,7 @@ swampVersion: 20261103.191618.0
 initializedAt: "2026-11-04T22:19:48.103Z"
 repoId: aa31ca1c-fc98-4dde-8d3f-d0f685e96212
 tools:
-  - claude
+  - codex
 defaultVault: default
 gitignoreManaged: true
+upgradedAt: "2026-11-04T23:02:23.330Z"

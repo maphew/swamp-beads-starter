@@ -1,7 +1,18 @@
 # The audit hook: what it does, what it costs, how to toggle it
 
-`swamp repo init` / `swamp repo upgrade` install two Claude Code hooks into
-`.claude/settings.local.json`:
+> **This repo does not have these hooks.** The default layout enrolls swamp as
+> `--tool codex`, which writes instructions to `AGENTS.md` and installs no
+> per-command hooks at all — `swamp audit --json` answers
+> `{"supported": false, "tool": "codex"}`. Nothing is recorded, so there is
+> nothing to disable and no false "bypass" signal.
+>
+> Everything below applies **only if you enroll claude**
+> (`swamp repo upgrade --tool claude` or `scripts/setup.sh --tool claude --tool
+> codex`). That is the configuration where the hooks exist, cost a binary spawn
+> per Bash call, and mislabel `bd` as a bypass.
+
+When the claude tool is enrolled, `swamp repo init` / `swamp repo upgrade`
+install two Claude Code hooks into `.claude/settings.local.json`:
 
 ```json
 "PostToolUse":        [ { "matcher": "Bash", "hooks": [ { "type": "command",
@@ -64,11 +75,14 @@ config, excluded from tuning findings.
 
 Until that lands, the honest options are:
 
-1. **Audit hooks off** (this repo's default). No audit trail, no false bypass
-   signal, no per-call cost.
-2. **Audit hooks on** when you want a compliance record for a specific session
-   (`scripts/audit-hook.sh enable`, run your work, `disable` after, or leave it
-   on and accept `bd` showing up as `direct`).
+1. **Don't enroll claude** (this repo's default). No hooks exist, so there is no
+   audit trail, no false bypass signal, and no per-call cost.
+2. **Enroll claude, hooks on** when you want a compliance record for a session
+   (`scripts/audit-hook.sh enable`, run your work, `disable` after — or leave
+   them on and accept `bd` showing up as `direct`).
+3. **Enroll claude, hooks off** (`scripts/setup.sh --tool claude --tool codex`
+   does this for you, or run `scripts/audit-hook.sh disable`). You keep claude's
+   pre-approved `swamp` Bash permissions without the per-call recording.
 
 ## Toggle
 
@@ -82,13 +96,20 @@ The script edits `.claude/settings.local.json` only, atomically, preserving
 `permissions.allow` and every other hook. It refuses to run outside a git repo
 and requires `jq`.
 
-**Re-check after upgrades.** `swamp repo upgrade` rewrites
-`.claude/settings.local.json` and reinstalls the hooks — verified: disabling, then
-running `swamp repo upgrade --tool claude`, brings both hooks back. Habit:
+**Re-check after upgrades.** With claude enrolled, `swamp repo upgrade`
+rewrites `.claude/settings.local.json` and reinstalls the hooks — verified:
+disabling, then running `swamp repo upgrade --tool claude`, brings both hooks
+back. Habit:
 
 ```bash
 swamp repo upgrade --tool claude && scripts/audit-hook.sh status
+# or simply: scripts/setup.sh   (idempotent; disables them again)
 ```
+
+If you switch to the codex target (`swamp repo upgrade --tool codex`), swamp
+can no longer record anything (it reports `supported: false`), but stale hooks
+may survive the switch — `scripts/setup.sh` removes them. The script's
+`status` will still work either way.
 
 ## Global variant
 
@@ -103,7 +124,8 @@ script is intentionally repo-scoped.
 
 ## What "off" actually loses
 
-- No `.swamp/audit/*.jsonl` entries for this clone between disable and enable.
+- No `.swamp/audit/*.jsonl` entries for this clone between disable and enable
+  (or ever, under the codex target).
 - `swamp audit`, `swamp audit report` and audit-based compliance reports see
   nothing for that window.
 - Nothing else: run history (`swamp run history`), reports on method/workflow

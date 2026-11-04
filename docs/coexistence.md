@@ -14,16 +14,16 @@ bounds each of those.
 
 | # | Area | Out of the box | Here | Why |
 |---|---|---|---|---|
-| A | Instruction files | swamp prepends its block to `CLAUDE.md`; `bd init` appends its block to **both** `AGENTS.md` and `CLAUDE.md` | `AGENTS.md` is the only source; `CLAUDE.md` = swamp block + `@AGENTS.md`; beads block exists once, in `AGENTS.md` | One canonical file, no duplicated rules, no drift |
-| B | Init order | whichever ran last "wins" the top of the file | documented order: create `CLAUDE.md` include → `swamp repo init` → `bd init` | `bd` skips `CLAUDE.md` when it contains the include; without the include it writes a duplicate block |
-| C | Precedence | two managed blocks, no arbitration; agents pick one at random | unmanaged "contract" section at the top of `AGENTS.md` | Explicit "task tracking = bd, automation = swamp" is what neither tool will say for you |
-| D | Claude hooks | beads: `SessionStart` + `PreCompact` → `bd prime` (`.claude/settings.json`); swamp: `PostToolUse` + `PostToolUseFailure` → `swamp audit record` (`.claude/settings.local.json`) | beads' hooks kept; swamp's audit hooks **disabled by default**, one command to enable | Audit costs a ~400 MB binary spawn per Bash call and mislabels `bd` calls; `bd prime` is cheap and useful |
-| E | Audit / telemetry | every non-swamp command recorded as `direct` (i.e. bypass); no allowlist | disabled by default; `docs/audit-hook.md` explains the trade-off | `bd`, `git`, `gh` are all "bypass" under the current model — noise that pollutes compliance data |
+| A | Instruction files | swamp (default `--tool claude`) prepends its block to `CLAUDE.md`; `bd init` writes a beads block to `AGENTS.md` *and* to `CLAUDE.md` if that file exists without an include | `AGENTS.md` is the only instruction file — swamp is enrolled `--tool codex` so its block lands there; `CLAUDE.md` is exactly `@AGENTS.md` | One canonical file; nothing to reconcile, nothing to keep in sync |
+| B | Init order | whichever ran last "wins" the top of the file; if `CLAUDE.md` is **missing**, `bd init` creates it with a full beads block | include first → swamp → bd; `scripts/setup.sh` enforces the order and repairs the wrong one | `bd` skips `CLAUDE.md` when it includes `AGENTS.md`, duplicates without it, and recreates the file if absent |
+| C | Precedence | two managed blocks, no arbitration; agents pick one at random | unmanaged "contract" section between the two generated blocks in `AGENTS.md` | Explicit "task tracking = bd, automation = swamp" is what neither tool will say for you |
+| D | Agent hooks | beads: `SessionStart` + `PreCompact` → `bd prime` (`.claude/settings.json`). swamp: `PostToolUse` + `PostToolUseFailure` → `swamp audit record`, **only when the claude tool is enrolled** | beads' hooks kept; the default codex target installs no swamp hooks at all | Codex has no per-command hooks — `swamp audit` itself reports `supported: false`. Nothing to disable, nothing recorded |
+| E | Audit / telemetry | with `--tool claude`: every Bash call recorded, non-swamp labelled `direct` (= bypass), no allowlist | not collected in the default; still a live problem if you enroll claude (`docs/audit-hook.md`, Lab #4410) | Avoids a ~400 MB spawn per Bash call and a false "you bypassed swamp" signal for `bd`/`git`/`gh` |
 | F | Git authority | beads default `agent.profile: conservative`; swamp says nothing about git | `agent.profile: team-maintainer` in tracked `.beads/config.yaml` | This repo is one you own and drive; commit/push are routine. Documented one-liner switches it back |
 | G | Task vs plan files | `tasks/` created lazily by `swamp start`; no convention for human plans | `tasks/` reserved for swamp briefs; `plans/` for humans; both have READMEs | Prevents near-duplicate clutter and prevents agents reading a random brief |
 | H | Secrets | none of the two enforces anything | `swamp vault` only; `bd remember` explicitly *not* for secrets | `bd remember` is attractive and unencrypted; swamp's `default` vault is the right home |
 | I | Skills | swamp skills are **global** (`~/.claude/skills`, `~/.agents/skills`), updated by `swamp repo upgrade`; beads skill is **repo-local** (`.agents/skills/beads/`) | kept as-is, documented | Explains why one is versioned in git and the other isn't |
-| J | Tool enrolment | `bd init` enrolls every detected CLI (claude/codex/cursor); swamp enrolls only what `--tool` says | both scoped to `claude`; `.codex/`, `.cursor/` removed | Deterministic starter; `bd setup <tool>` / `swamp repo upgrade --tool <tool>` re-add per tool |
+| J | Tool enrolment | `bd init` enrols every CLI it detects — creating `.codex/`, `.cursor/` and appending a second, older beads block (`BEADS CODEX SETUP`) to `AGENTS.md`; swamp enrols what `--tool` says and writes one block per enrolled tool | swamp `--tool codex`; bd's extra enrolments and their block stripped by `scripts/setup.sh` | Deterministic and machine-independent — without this, `AGENTS.md` differs per laptop and carries the same policy twice |
 | K | `.gitignore` | both write their own section; swamp's is marker-managed, beads' is appended plain | both kept, unchanged | They don't collide today; swamp regenerates only its own marked section |
 | L | Datastores | `.beads/` (Dolt) + `.swamp/` (catalog + run history) | unchanged, documented as non-atomic | Don't design a workflow step whose correctness depends on beads state |
 | M | Auth gates | `bd` offline; swamp requires swamp-club sign-in | documented; CI uses `SWAMP_API_KEY` + `SWAMP_SIGNIN_TOKEN` | Avoid a headless workflow step that can't authenticate |
@@ -31,74 +31,87 @@ bounds each of those.
 
 ## A. Instruction files
 
-Out of the box, with both tools initialized:
+Both tools write *generated* blocks into instruction files, and neither asks
+where. The target depends on what you enrol:
 
-- `CLAUDE.md` gets swamp's 11-rule managed block **prepended** above whatever
-  was there.
-- `bd init` appends its `<!-- BEGIN BEADS INTEGRATION … -->` block to
-  `AGENTS.md` **and** to `CLAUDE.md` (if `CLAUDE.md` exists and does not already
-  include the agents file).
+| swamp `--tool` | swamp writes its block to | creates `CLAUDE.md`? |
+|---|---|---|
+| `claude` (swamp's default) | `CLAUDE.md` | yes (prepends) |
+| `codex` (this repo) | `AGENTS.md` | no |
+| `claude --tool codex` | **both** files | yes (prepends) |
 
-Result: a repo with two 50–110 line managed blocks in one file, each claiming
-authority over task tracking, and neither aware of the other. An agent reading
-top-down follows swamp's rule 9 ("do not interpret workflow as an agent task
-list") and beads' rule ("Use `bd` for ALL task tracking") and has to guess at
-the seam.
+`bd`, separately:
 
-Here, `AGENTS.md` holds the contract and beads' block; `CLAUDE.md` holds swamp's
-block plus one line:
+- always writes its block to `AGENTS.md` (or `--agents-file`);
+- also writes it into `CLAUDE.md` **if that file exists without an
+  `@AGENTS.md` include**;
+- **creates** `CLAUDE.md` with a full beads block if the file is missing.
+
+So the naive combination (`swamp repo init` then `bd init`, defaults) produces a
+fat `CLAUDE.md` with swamp's rules *and* a beads block, plus `AGENTS.md` with a
+second beads block — two competing "use X for ALL task tracking" directives in
+two files, neither aware of the other.
+
+This repo enrols swamp as **codex** — a statement about the instruction
+*target*, not about which agent you run — and keeps `CLAUDE.md` as one line.
+Result:
 
 ```
-@AGENTS.md
+AGENTS.md : swamp managed block (1-52) -> contract (53-...) -> beads block
+CLAUDE.md : @AGENTS.md
 ```
+
+Claude Code (Sept 2026 and later) reads `AGENTS.md` when `CLAUDE.md` is absent,
+and reads it through the include otherwise. Older Claude Code needs the include,
+which is why the file exists at all rather than being deleted — `bd` would
+recreate it with a full block anyway.
 
 Verify:
 
 ```bash
-grep -n "swamp managed\|BEADS INTEGRATION\|@AGENTS.md" AGENTS.md CLAUDE.md
+grep -n "swamp managed\|BEADS INTEGRATION" AGENTS.md   # one of each
+cat CLAUDE.md                                          # exactly: @AGENTS.md
+grep -c "BEGIN" CLAUDE.md                              # 0
 ```
-
-Expect: swamp markers only in `CLAUDE.md`, beads markers only in `AGENTS.md`,
-one `@AGENTS.md` line, and no rule text duplicated between them.
 
 ## B. Init order matters
 
-`bd` is smarter than it looks: when `CLAUDE.md` already contains
-`@AGENTS.md`, it treats that file as covered and writes its section to
-`AGENTS.md` only. When `CLAUDE.md` exists *without* the include, it writes the
-section into both.
+`bd` is smarter than it looks: when `CLAUDE.md` already contains `@AGENTS.md`,
+it treats that file as covered and writes its section to `AGENTS.md` only. When
+`CLAUDE.md` exists *without* the include, it writes the section into both. When
+`CLAUDE.md` does not exist, it creates it.
 
 Verified: with `CLAUDE.md` = `@AGENTS.md` and nothing else, `bd init` left
-`CLAUDE.md` untouched and put the block in `AGENTS.md`. With
-`CLAUDE.md` = "some notes" and no include, `bd init` appended the full block to
-`CLAUDE.md` as well. Same for `bd setup claude`, which reported
-`File: AGENTS.md` in the include case.
+`CLAUDE.md` untouched and put the block in `AGENTS.md`. With `CLAUDE.md` =
+"some notes" and no include, `bd init` appended the full block to `CLAUDE.md`.
+With no `CLAUDE.md` at all, `bd init` created one containing a beads block.
+`bd setup claude` behaves the same way (it recreates the fat file if deleted).
 
 So the safe sequence for a new repo is:
 
 ```bash
-printf '@AGENTS.md\n' > CLAUDE.md
-swamp repo init      # prepends its block above the include
-bd init              # appends beads block to AGENTS.md only
+printf '@AGENTS.md\n' > CLAUDE.md   # MUST exist with the include first
+swamp repo init --tool codex         # block lands in AGENTS.md
+bd init                              # beads block appended to AGENTS.md
 ```
 
-`scripts/setup.sh` encodes exactly this order, and repairs the wrong order by
-stripping the duplicate out of `CLAUDE.md` (backup kept) before appending the
-include.
+`scripts/setup.sh` encodes exactly this order. It also repairs a repo built the
+wrong way: it reduces a fat `CLAUDE.md` to the include (backup
+`CLAUDE.md.pre-setup.bak`), strips duplicate `BEADS * SETUP` blocks out of
+`AGENTS.md` (backup `AGENTS.md.pre-setup.bak`), and re-verifies.
 
-If you did it the other way and `CLAUDE.md` grew a beads block, delete it (keep
-`@AGENTS.md`) and run `bd setup claude` to confirm `bd` now targets
-`AGENTS.md`.
+Two re-entry points to remember:
 
-Note: swamp's block lands *above* `@AGENTS.md` in `CLAUDE.md`, so `CLAUDE.md`
-is not literally "thin". It is still single-source: everything project-specific
-lives in `AGENTS.md`, and swamp's generated text is regenerable. `swamp repo
-upgrade` re-prepends and leaves `@AGENTS.md` last — verified.
+- `swamp repo upgrade --tool claude` prepends its block to `CLAUDE.md` again.
+- `bd init` on a repo without `CLAUDE.md` recreates it.
+
+Both are fixed by re-running `scripts/setup.sh` — that is why the script is
+idempotent rather than one-shot.
 
 ## C. Precedence
 
-Neither tool will ever state the other's job. The contract section at the top of
-`AGENTS.md` does, in nine rules, and is outside both managed blocks so it
+Neither tool will ever state the other's job. The contract section in
+`AGENTS.md` does, in ten rules, and sits outside both managed blocks so it
 survives regeneration. The three that matter most:
 
 - Work items are beads; "workflow" means a swamp workflow.
@@ -107,40 +120,55 @@ survives regeneration. The three that matter most:
 
 ## D. Hooks
 
-Two independent hook systems install into two different files:
+Two hook systems, in two files, and only one of them applies in the default
+layout:
 
-| Tool | File | Events | Command | Tracked? |
+| Tool | File | Events | Command | Applies when |
 |---|---|---|---|---|
-| beads | `.claude/settings.json` | `SessionStart`, `PreCompact` | `bd prime --hook-json` | yes |
-| swamp | `.claude/settings.local.json` | `PostToolUse`, `PostToolUseFailure` (matcher `Bash`) | `swamp audit record --from-hook` | no (gitignored by swamp) |
+| beads | `.claude/settings.json` | `SessionStart`, `PreCompact` | `bd prime --hook-json` | always (tracked, committed) |
+| swamp | `.claude/settings.local.json` | `PostToolUse`, `PostToolUseFailure` (matcher `Bash`) | `swamp audit record --from-hook` | only when the **claude** tool is enrolled |
 
-They do not overwrite each other, so "install both" is the default outcome. This
-layout keeps `bd prime` (cheap, useful, prevents workflow amnesia after
-compaction) and disables the swamp audit pair (cost per Bash call, dubious
-classification — see `docs/audit-hook.md`).
+With the default `--tool codex`, swamp installs no hooks at all — codex has no
+per-command hooks, and `swamp audit --json` says so:
+
+```json
+{ "supported": false, "tool": "codex",
+  "message": "Audit hooks are not available for codex. ..." }
+```
+
+So the default needs no toggle step, and `scripts/setup.sh` reports `n/a`. It
+still removes stale hooks left by an earlier `--tool claude` run, because those
+would spawn the swamp binary for nothing.
+
+A `bd prime` hook, by contrast, is cheap and prevents workflow amnesia after
+compaction — keep it. Both scripts here refuse to touch `.claude/settings.json`.
 
 Verify:
 
 ```bash
-scripts/audit-hook.sh status
-jq '.hooks' .claude/settings.json          # beads hooks untouched
+scripts/audit-hook.sh status            # "no settings file" is a valid default state
+jq '.hooks' .claude/settings.json       # beads hooks untouched
 ```
 
 ## E. Audit classification
 
-`swamp audit record --from-hook` writes one JSONL line per Bash command and
-labels it `swamp` or `direct`. There is no allowlist, so:
+Relevant only if you enrol claude. `swamp audit record --from-hook` then writes
+one JSONL line per Bash command and labels it `swamp` or `direct`, with no
+allowlist:
 
 ```
 {"command":"bd ready --json", ...}   ->  {"source":"direct","summary":"bd ready --json"}
 ```
 
-`direct` is the bypass bucket. Feed a session of beads-driven work through and
-swamp's own session summaries count legitimate task tracking as policy
-non-compliance, then emit tuning findings for the agent. This layout turns the
-hook off and documents exactly what you lose (the compliance trail), with a
-one-command way to turn it back on when you want an audited run.
-Full detail: `docs/audit-hook.md`.
+`direct` is the bypass bucket. A session of beads-driven work therefore reads as
+policy non-compliance, and the imported session summaries emit tuning findings
+telling the agent to stop doing what we asked.
+
+This layout avoids the question by not enrolling claude: no hooks, no
+classification, no false signal — and no per-command trail either. If you want
+the trail, enrol claude, accept that `bd`/`git`/`gh` will be labelled `direct`,
+and see `docs/audit-hook.md` plus **swamp-club Lab #4410** (proposed
+`swamp audit bypass add 'bd *'`).
 
 ## F. Git authority
 
@@ -198,28 +226,58 @@ This asymmetry is expected; don't "fix" it by vendoring swamp's skills.
 
 ## J. Tool enrolment
 
-`bd init` auto-detects installed CLIs and writes `.claude/`, `.codex/`,
-`.cursor/` integrations. `swamp repo init` writes only for `--tool` (default:
-detected). This starter is scoped to `claude`, so `.codex/` and `.cursor/` were
-removed after `bd init`.
+`bd init` has no `--tool`: it enrols **every CLI it detects**. On this machine
+that meant `.codex/`, `.cursor/`, and a second beads block appended to
+`AGENTS.md`:
+
+```markdown
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:1105d646 -->
+## Beads Issue Tracker            <- canonical: bd prime, minimal profile
+...
+<!-- END BEADS INTEGRATION -->
+
+<!-- BEGIN BEADS CODEX SETUP: generated by bd setup codex -->
+## Beads Issue Tracker            <- older wording, points at the beads skill
+...
+<!-- END BEADS CODEX SETUP -->
+```
+
+Two blocks, same policy, in one file — and the file's content differs depending
+on which CLIs the developer happens to have installed. `scripts/setup.sh` strips
+any `BEGIN BEADS … SETUP` block (keeping the canonical `BEADS INTEGRATION`) and
+removes `.codex/`/`.cursor/` unless you pass `--keep-cli-enrolments`. Both
+directories are gitignored, so removing them cannot dirty the tree.
 
 Re-add per tool:
 
 ```bash
-bd setup codex           # or: cursor, aider ...
+bd setup codex              # or: cursor, aider ...   (bd setup <tool> --remove to undo)
 swamp repo upgrade --tool claude --tool codex
 ```
 
-Adding `codex` to swamp means swamp's managed block moves to `AGENTS.md`
-(codex's instruction file) and gets prepended above beads' block there. Still
-single-source, but check it after the upgrade.
+swamp enrolment is independent: `--tool codex` only decides that swamp's managed
+block goes to `AGENTS.md`. It does not require codex to be installed and does
+not create a `.codex/` directory — verified on a clean repo.
 
 ## K. `.gitignore`
 
-Both tools own a section. Swamp's is marker-delimited and regenerated on
-upgrade; beads' is appended plain text. Current file, in order: beads' Dolt
-ignores, then swamp's marked section. Nothing collides — but if you move the
-swamp markers, expect `swamp repo upgrade` to re-add them.
+Three owners, three sections, no collisions:
+
+| Section | Owner | Contents |
+|---|---|---|
+| `# BEGIN swamp managed section` | swamp, regenerated on upgrade | `.swamp/`, `.swamp-sources.yaml` |
+| `# Beads / Dolt files` | `bd init`, appended plain | `.dolt/`, `*.db`, `.beads/proxieddb/`, `*.gate.lock*` |
+| unmarked tail | this layout | `.claude/settings.local.json`, `.codex/`, `.cursor/`, `*.pre-setup.bak` |
+
+The third section exists because swamp only ignores `.claude/settings.local.json`
+when the **claude** tool is enrolled. With the default codex target it does not,
+and per-clone agent config must never be committed — so the ignore is declared
+here instead of depending on tool enrolment.
+
+`.codex/` and `.cursor/` are ignored for a sharper reason: `bd init` generates
+them for every CLI it detects **and commits them**, so an un-ignored checkout
+differs by machine. Ignoring them means `bd`'s auto-commit cannot pick them up,
+and `scripts/setup.sh` removing them leaves no dirt behind.
 
 ## L. Two datastores
 
@@ -244,20 +302,35 @@ idempotent).
 
 ## N. Verification checklist
 
-Run after any change to the layout, and after `swamp repo upgrade` or
-`bd init` / `bd setup`:
+The fastest check is to re-run the bootstrap: it is idempotent and exits 2 on
+drift.
 
 ```bash
-scripts/setup.sh --dry-run      # preview every action, change nothing (safest first check)
-grep -n "swamp managed\|BEADS INTEGRATION\|@AGENTS.md" AGENTS.md CLAUDE.md   # A, B
-scripts/audit-hook.sh status                                                  # D, E
-bd config get agent.profile                                                   # F
-bd doctor --check=conventions                                                 # beads sanity
-swamp doctor extensions                                                       # swamp sanity
-scripts/setup.sh                # idempotent re-run: upgrades, disables hooks, verifies; exit 2 on drift
-swamp repo upgrade --tool claude && git diff                                  # drift check
+scripts/setup.sh --dry-run      # preview every action, change nothing
+scripts/setup.sh                # re-thin CLAUDE.md, strip dup blocks, verify (no upgrade)
+scripts/setup.sh --upgrade      # ...and refresh swamp's skills/instructions first
 ```
 
-The last one is the important habit: upgrading swamp should produce a diff only
-inside its own managed block (and possibly the audit hooks — re-run `disable`).
-If a diff appears in the contract section, someone edited a managed block.
+`setup.sh` deliberately does not run `swamp repo upgrade` on an initialized repo:
+upgrade bumps `upgradedAt` in the tracked `.swamp.yaml`, which would dirty the
+tree on every invocation.
+
+Manual equivalents:
+
+```bash
+cat CLAUDE.md                                                              # A: exactly @AGENTS.md
+grep -c "BEGIN swamp managed section" AGENTS.md                            # A: 1
+grep -c "BEGIN BEADS INTEGRATION" AGENTS.md                                # A: 1
+grep -c "BEGIN BEADS .* SETUP" AGENTS.md                                   # J: 0
+scripts/audit-hook.sh status                                               # D: no hooks (codex)
+bd config get agent.profile                                                # F
+bd doctor --check=conventions                                              # beads sanity
+swamp audit --json                                                         # D: supported:false (codex)
+swamp repo upgrade && git diff                                             # drift check
+```
+
+The last one is the habit that matters: after `swamp repo upgrade` a diff should
+appear only inside swamp's own managed block — plus, if claude is enrolled, its
+block re-prepended to `CLAUDE.md` and the audit hooks reinstalled, both fixed by
+re-running `scripts/setup.sh`. A diff inside the contract section means someone
+edited a managed block.

@@ -85,5 +85,7 @@ Don't try to make one hold the other's state:
    git push                            # ...and push, unless told not to
    ```
 
-The next session starts with `bd prime` (beads' hook does it for you) and, if it
-needs the audit trail, `scripts/audit-hook.sh enable`.
+The next session starts with `bd prime` (beads' hook does it for you). There is
+no swamp audit trail to manage by default — the codex target records nothing —
+so only enroll claude (and then decide about the hooks) if you actually want
+per-command auditing.

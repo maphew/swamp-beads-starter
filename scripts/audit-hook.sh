@@ -10,6 +10,12 @@
 #     PostToolUse        (matcher: Bash) -> swamp audit record --from-hook
 #     PostToolUseFailure (matcher: Bash) -> swamp audit record --from-hook
 #
+# NOTE: these hooks only exist when the CLAUDE tool is enrolled
+# (`swamp repo init --tool claude` / `swamp repo upgrade --tool claude`). With the
+# codex target used by this repo's default layout, swamp installs no hooks at all
+# and `swamp audit --json` reports {"supported": false}. Then "no settings file"
+# below is the correct, expected state.
+#
 # They record every shell command so swamp can classify each one as
 # `swamp` (went through a swamp command) or `direct` (did not). There is no
 # allowlist: legitimate non-swamp tooling — `bd`, `git`, `rg`, `gh` — is
@@ -75,6 +81,11 @@ status() {
     printf 'state         : no settings file (hooks never installed here)\n'
     printf 'swamp audit   : would record nothing\n'
     return 0
+  fi
+  if ! grep -q '^  - claude$' "$repo_root/.swamp.yaml" 2>/dev/null; then
+    printf 'note          : claude is not enrolled in .swamp.yaml — swamp reports\n'
+    printf '                audit hooks unsupported for this tool, so enabling them\n'
+    printf '                records nothing. Add it with: swamp repo upgrade --tool claude\n'
   fi
   if [[ "$n" -eq 0 ]]; then
     printf 'state         : DISABLED (%s audit hooks present)\n' "$n"

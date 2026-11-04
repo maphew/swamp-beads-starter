@@ -73,3 +73,5 @@
 
 agent:
     profile: team-maintainer
+sync:
+    remote: "git+https://github.com/maphew/swamp-beads-starter.git"

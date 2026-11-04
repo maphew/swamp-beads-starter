@@ -4,6 +4,13 @@ Paste one of these to any agent in this repo. They are written to be safe to run
 unattended: they touch exactly one gitignored file, verify afterwards, and never
 modify beads' session hooks.
 
+**Scope note.** The default layout enrolls swamp as `--tool codex`, which
+installs no per-command hooks at all — `swamp audit --json` reports
+`supported: false`. In that state there is nothing to disable, and
+`scripts/audit-hook.sh status` saying "no settings file" is correct. These
+prompts matter once claude is enrolled (`swamp repo upgrade --tool claude`, or
+`scripts/setup.sh --tool claude --tool codex`).
+
 ---
 
 ## Disable (the usual case: beads + git + gh are legitimate, not bypasses)
