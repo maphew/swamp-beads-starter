@@ -65,6 +65,13 @@ apply. Yet every `bd` call is counted as a bypass, and those labels feed:
   should stop doing the thing we asked it to do.
 
 Cost, not just signal: the hook spawns the swamp binary on **every** Bash call.
+Measured on `swamp 20261103.191618.0`: **~475 ms** warm per call (~466 ms of that is
+bare process startup — an empty-stdin call that writes nothing costs the same), ~207
+MiB RSS, ~33k minor page faults, from a 401 MB executable. `bd prime` costs ~100 ms
+for comparison. Reproduce the numbers in
+[issue #1](https://github.com/maphew/swamp-beads-starter/issues/1), which also tracks
+the candidate fixes (tiny native recorder, fast path in `audit record`, session
+batching, a supported opt-out that survives `swamp repo upgrade`).
 
 There is currently no allowlist. Feature request filed upstream:
 **swamp-club Lab #4410** — *audit: register legitimate non-swamp commands as
@@ -133,6 +140,8 @@ script is intentionally repo-scoped.
 
 ## Related
 
+- [Issue #1](https://github.com/maphew/swamp-beads-starter/issues/1) — measured cost
+  and candidate fixes.
 - `docs/coexistence.md` §D and §E — hook inventory and classification detail.
 - `prompts/audit-hook-toggle.md` — a prompt you can paste to any agent instead
   of running the script yourself.
