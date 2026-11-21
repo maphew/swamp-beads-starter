@@ -215,7 +215,7 @@ MIT — see [LICENSE](LICENSE). Copy the layout into your own project freely; th
 - If you derive a repo from this template, `.beads/config.yaml` arrives with
   `sync.remote` pointing here; `scripts/setup-swamp-beads.sh` fixes it, but if you skip the
   script, `bd init` will import this project's example issues.
-- **Audit hooks are expensive**: ~475 ms and ~207 MiB per Bash call, from a 401 MB
+- **Audit hooks are expensive**: ~200 ms and ~127 MiB per Bash call, from a 292 MB
   binary (measured; issue [#1](https://github.com/maphew/swamp-beads-starter/issues/1),
   bead `swamp-beads-starter-4co`). That is why they are off here.
 - There is no way yet to tell swamp "`bd` is an approved bypass, not a

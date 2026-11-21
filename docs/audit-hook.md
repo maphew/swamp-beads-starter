@@ -65,13 +65,35 @@ apply. Yet every `bd` call is counted as a bypass, and those labels feed:
   should stop doing the thing we asked it to do.
 
 Cost, not just signal: the hook spawns the swamp binary on **every** Bash call.
-Measured on `swamp 20261103.191618.0`: **~475 ms** warm per call (~466 ms of that is
-bare process startup — an empty-stdin call that writes nothing costs the same), ~207
-MiB RSS, ~33k minor page faults, from a 401 MB executable. `bd prime` costs ~100 ms
-for comparison. Reproduce the numbers in
+Re-measured 2026-11-21 on `swamp 20261114.210101.0-sha.537e03d1`: **~200 ms** warm
+per call (0.19–0.21 s over 5 runs; an empty-stdin call that writes nothing costs the
+same, so essentially all of it is startup), ~127 MiB max RSS (129,912 KB), ~22k minor
+page faults, from a 292 MB executable. `bd prime` costs ~40 ms for comparison.
+Upstream has improved this — the first measurement, on `20261103.191618.0`, was
+475 ms / 207 MiB / 401 MB — but 200 ms per command is still ~200× a plain
+`printf >> file`, and it is the largest single tax in a tool-heavy session.
+Reproduce the numbers in
 [issue #1](https://github.com/maphew/swamp-beads-starter/issues/1), which also tracks
 the candidate fixes (tiny native recorder, fast path in `audit record`, session
 batching, a supported opt-out that survives `swamp repo upgrade`).
+
+`PostToolUse` fires per tool call and runs **concurrently** for parallel calls, so a
+batch of N parallel Bash calls spikes N × 127 MiB at once.
+
+The recorded line is tiny and fully derived at read time:
+
+```json
+{"timestamp":"2026-11-21T22:16:44.575Z","command":"bd ready --json","cwd":"/tmp/hk","sessionId":"p"}
+```
+
+Those five fields are all that is persisted. `hook_event_name` is ignored
+(`PostToolUseFailure` writes the identical line — `status` is inferred by
+`swamp audit`, not recorded), and `source` is decided from the command prefix when
+the report runs, so hand-appending the same line yields the same report. Measured
+on the same box, that costs **<10 ms** with `jq` — worth knowing before the fix
+lands upstream, and it is what candidate fix 1 in issue #1 would ship. The catch is
+schema drift: the shim must track this five-field format, which is why it is not a
+shipped script here.
 
 There is currently no allowlist. Feature request filed upstream:
 **swamp-club Lab #4410** — *audit: register legitimate non-swamp commands as
