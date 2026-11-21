@@ -22,7 +22,7 @@ bounds each of those.
 | F | Git authority | beads default `agent.profile: conservative`; swamp says nothing about git | `agent.profile: team-maintainer` in tracked `.beads/config.yaml` | This repo is one you own and drive; commit/push are routine. Documented one-liner switches it back |
 | G | Task vs plan files | `tasks/` created lazily by `swamp start`; no convention for human plans | `tasks/` reserved for swamp briefs; `plans/` for humans; both have READMEs | Prevents near-duplicate clutter and prevents agents reading a random brief |
 | H | Secrets | none of the two enforces anything | `swamp vault` only; `bd remember` explicitly *not* for secrets | `bd remember` is attractive and unencrypted; swamp's `default` vault is the right home |
-| I | Skills | swamp skills are **global** (`~/.claude/skills`, `~/.agents/skills`), updated by `swamp repo upgrade`; beads skill is **repo-local** (`.agents/skills/beads/`) | kept as-is, documented | Explains why one is versioned in git and the other isn't |
+| I | Skills | swamp skills are **global** (`~/.claude/skills`, `~/.agents/skills`), updated by `swamp repo upgrade`; the beads skill is repo-local (`.agents/skills/beads/`) in a plain `bd init` | not vendored here: the beads skill comes from the Home repo via `~/.agents/skills` | One copy of a skill, or it drifts from the version every other repo loads |
 | J | Tool enrolment | `bd init` enrols every CLI it detects — creating `.codex/`, `.cursor/` and appending a second, older beads block (`BEADS CODEX SETUP`) to `AGENTS.md`; swamp enrols what `--tool` says and writes one block per enrolled tool | swamp `--tool codex`; bd's extra enrolments and their block stripped by `scripts/setup-swamp-beads.sh` | Deterministic and machine-independent — without this, `AGENTS.md` differs per laptop and carries the same policy twice |
 | K | `.gitignore` | both write their own section; swamp's is marker-managed, beads' is appended plain | both kept, unchanged | They don't collide today; swamp regenerates only its own marked section |
 | L | Datastores | `.beads/` (Dolt) + `.swamp/` (catalog + run history) | unchanged, documented as non-atomic | Don't design a workflow step whose correctness depends on beads state |
@@ -220,9 +220,15 @@ swamp vault put default MY_TOKEN
   (`~/.claude/skills`, `~/.agents/skills`) and are refreshed by
   `swamp repo upgrade`. Not in git, not per-repo.
 - **beads**: `bd init` writes a repo-local skill to `.agents/skills/beads/`
-  (plus `agents/openai.yaml`). Committed, versioned with the repo.
+  (plus `agents/openai.yaml`). A plain beads repo commits that. This template
+  does not: the beads skill lives in the Home repo (`-o-`), which
+  `~/.agents/skills` symlinks to, so every agent that loads skills already has
+  it and a second vendored copy would only drift. If `bd init` re-creates one in
+  a repo derived from this template, delete it — or keep it, if that repo is not
+  on a machine with the Home repo checked out.
 
-This asymmetry is expected; don't "fix" it by vendoring swamp's skills.
+swamp's skills are the asymmetry that is expected; don't "fix" it by vendoring
+them.
 
 ## J. Tool enrolment
 

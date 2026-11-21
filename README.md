@@ -41,7 +41,8 @@ plans/                     human planning docs, design notes (README explains)
 tasks/                     swamp start launch briefs ONLY (README explains)
 models/ workflows/ vaults/ grants/      swamp definitions (YAML, committed)
 .beads/                    beads database + tracked config.yaml (profile lives here)
-.agents/skills/beads/      beads' agent skill (repo-local, committed)
+.agents/                   absent here: the beads skill comes from the Home repo
+                           (~/.agents/skills/beads); a plain `bd init` writes a copy
 .claude/settings.json      bd SessionStart/PreCompact hooks (committed)
 .claude/settings.local.json per-clone agent config (gitignored)
 .swamp/                    swamp runtime data (gitignored)
