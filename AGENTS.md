@@ -115,7 +115,7 @@ silent, the managed blocks apply.
 10. **One instruction file.** Rules live in this file only. `CLAUDE.md` is the
     `@AGENTS.md` include; generated blocks (`swamp managed section`,
     `BEADS INTEGRATION`) belong to their tools — edit outside them, never inside.
-    Re-normalize with `scripts/setup.sh` if a tool adds a second block.
+    Re-normalize with `scripts/setup-swamp-beads.sh` if a tool adds a second block.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:1105d646 -->
 ## Beads Issue Tracker

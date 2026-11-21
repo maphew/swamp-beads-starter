@@ -33,7 +33,7 @@ docs/
   audit-hook.md            swamp's per-Bash audit hooks, and the toggle
   walkthrough.md           a day in this repo: both loops and the handoff
 scripts/
-  setup.sh                 one-command bootstrap (init order, profile, hook state)
+  setup-swamp-beads.sh     one-command bootstrap (init order, profile, hook state)
   audit-hook.sh            status | enable | disable the audit hooks
 prompts/
   audit-hook-toggle.md     copy-paste prompt for any agent
@@ -63,7 +63,7 @@ swamp behavior run <name> <read-only-method>
 swamp data query 'behaviorName == "<name>"'
 
 # 3. layout hygiene
-scripts/setup.sh --dry-run       # preview: init order, profile, hook state
+scripts/setup-swamp-beads.sh --dry-run       # preview: init order, profile, hook state
 scripts/audit-hook.sh status     # no hooks by default (codex target records nothing)
 ```
 
@@ -85,8 +85,8 @@ Full text: the top of `AGENTS.md`. Rationale: `docs/coexistence.md`.
 ```bash
 mkdir my-project && cd my-project
 cp -r /path/to/swamp-beads-starter/{AGENTS.md,docs,scripts,prompts,plans,tasks,.gitignore} .
-# CLAUDE.md is deliberately NOT copied: setup.sh creates it as @AGENTS.md
-scripts/setup.sh                  # git init, include, swamp, bd, profile, hooks, verify
+# CLAUDE.md is deliberately NOT copied: setup-swamp-beads.sh creates it as @AGENTS.md
+scripts/setup-swamp-beads.sh                  # git init, include, swamp, bd, profile, hooks, verify
 ```
 
 Then edit the contract section of `AGENTS.md` to your project.
@@ -94,18 +94,18 @@ Then edit the contract section of `AGENTS.md` to your project.
 ### Fresh clone of this repo
 
 ```bash
-scripts/setup.sh
+scripts/setup-swamp-beads.sh
 ```
 
 A clone carries `.beads/` config, hooks and metadata but **not** the Dolt
-database, so `setup.sh` probes `bd ready` rather than trusting the directory, and
+database, so `setup-swamp-beads.sh` probes `bd ready` rather than trusting the directory, and
 runs `bd init` when the database is missing — which bootstraps the issue history
 from the git remote (`refs/dolt/data`) in a few seconds. `bd ready` then lists the
 two example beads.
 
 **A repo derived from this template must not inherit this project's issues.**
 `.beads/config.yaml` is tracked and can carry `sync.remote` pointing at the source
-repo, and `bd init` will bootstrap from it. `setup.sh` therefore reconciles that
+repo, and `bd init` will bootstrap from it. `setup-swamp-beads.sh` therefore reconciles that
 line with *your* `origin` before bd runs: repoint when it differs, drop it when
 there is no origin at all. A derived repo starts with an empty backlog.
 
@@ -113,16 +113,16 @@ there is no origin at all. A derived repo starts with an empty backlog.
 
 ```bash
 cp -r /path/to/swamp-beads-starter/{scripts,docs,prompts,plans,tasks,AGENTS.md} .
-scripts/setup.sh --profile conservative
+scripts/setup-swamp-beads.sh --profile conservative
 ```
 
-`setup.sh` is idempotent and safe on an already-initialized repo: it leaves an
+`setup-swamp-beads.sh` is idempotent and safe on an already-initialized repo: it leaves an
 existing `swamp`/`bd` install alone (no re-init, no upgrade unless `--upgrade`),
 reduces a fat `CLAUDE.md` to the include (backup: `CLAUDE.md.pre-setup.bak`),
 strips duplicate `BEADS * SETUP` blocks out of `AGENTS.md` (backup:
 `AGENTS.md.pre-setup.bak`), and re-runs the verification.
 
-### What `scripts/setup.sh` does, in order
+### What `scripts/setup-swamp-beads.sh` does, in order
 
 1. `git init -b main` if you are not in a repo (`--no-git` to refuse).
 2. Creates `AGENTS.md` **only if missing** (stub with a short contract).
@@ -144,12 +144,12 @@ strips duplicate `BEADS * SETUP` blocks out of `AGENTS.md` (backup:
    duplicate blocks, profile value, bd hooks. Exits 2 on drift.
 
 ```bash
-scripts/setup.sh --help
-scripts/setup.sh --dry-run                  # print every command, change nothing
-scripts/setup.sh --profile conservative     # review-gated repo
-scripts/setup.sh --keep-audit-hooks         # claude target only: keep the trail
-scripts/setup.sh --upgrade                  # refresh swamp skills/instructions (dirties .swamp.yaml)
-scripts/setup.sh --keep-cli-enrolments      # keep .codex/ and .cursor/
+scripts/setup-swamp-beads.sh --help
+scripts/setup-swamp-beads.sh --dry-run                  # print every command, change nothing
+scripts/setup-swamp-beads.sh --profile conservative     # review-gated repo
+scripts/setup-swamp-beads.sh --keep-audit-hooks         # claude target only: keep the trail
+scripts/setup-swamp-beads.sh --upgrade                  # refresh swamp skills/instructions (dirties .swamp.yaml)
+scripts/setup-swamp-beads.sh --keep-cli-enrolments      # keep .codex/ and .cursor/
 ```
 
 ### Want Claude Code to stop asking permission for `swamp`?
@@ -158,12 +158,12 @@ swamp's pre-approved Bash list (`permissions.allow`) is written only for an
 enrolled claude tool, into the gitignored `.claude/settings.local.json`. Two ways:
 
 ```bash
-scripts/setup.sh --tool claude --tool codex   # script strips the CLAUDE.md block again
+scripts/setup-swamp-beads.sh --tool claude --tool codex   # script strips the CLAUDE.md block again
 ```
 
 ...or just approve the prompts, or copy the `permissions.allow` array from
 another repo. Note that `--tool claude` also re-installs the per-Bash audit
-hooks on every `swamp repo upgrade`; `scripts/setup.sh` disables them again each
+hooks on every `swamp repo upgrade`; `scripts/setup-swamp-beads.sh` disables them again each
 time it runs.
 
 ### Tool targets and what they change
@@ -196,16 +196,16 @@ MIT — see [LICENSE](LICENSE). Copy the layout into your own project freely; th
 
 - **`bd init` enrols every CLI it detects.** On a machine with codex/cursor
   installed it appends a second, older beads block (`BEADS CODEX SETUP`) to
-  `AGENTS.md` and creates `.codex/` + `.cursor/`. `scripts/setup.sh` strips and
+  `AGENTS.md` and creates `.codex/` + `.cursor/`. `scripts/setup-swamp-beads.sh` strips and
   removes them, and both directories are gitignored so the removal is invisible
   to git. Nothing re-adds them until you run `bd setup <tool>` again.
 - **`bd` re-creates `CLAUDE.md`** (with a full beads block) if the file is
   missing. That is why the include exists rather than no file at all.
 - **`swamp repo upgrade --tool claude` re-inflates `CLAUDE.md`** and reinstalls
-  the audit hooks (both verified). Re-run `scripts/setup.sh`; it re-thins the
+  the audit hooks (both verified). Re-run `scripts/setup-swamp-beads.sh`; it re-thins the
   file and disables the hooks.
 - `swamp repo upgrade` rewrites `upgradedAt` in the tracked `.swamp.yaml`, so
-  any upgrade dirties the tree. That is why `scripts/setup.sh` only upgrades
+  any upgrade dirties the tree. That is why `scripts/setup-swamp-beads.sh` only upgrades
   with `--upgrade`; commit the bump or `git checkout -- .swamp.yaml`.
 - **With the default codex target swamp records no audit data at all**
   (`swamp audit` → `supported: false`). There is no bypass/allowlist concept to
@@ -213,7 +213,7 @@ MIT — see [LICENSE](LICENSE). Copy the layout into your own project freely; th
   per-command trail. Fields differ from the claude target; see
   `docs/audit-hook.md`.
 - If you derive a repo from this template, `.beads/config.yaml` arrives with
-  `sync.remote` pointing here; `scripts/setup.sh` fixes it, but if you skip the
+  `sync.remote` pointing here; `scripts/setup-swamp-beads.sh` fixes it, but if you skip the
   script, `bd init` will import this project's example issues.
 - **Audit hooks are expensive**: ~475 ms and ~207 MiB per Bash call, from a 401 MB
   binary (measured; issue [#1](https://github.com/maphew/swamp-beads-starter/issues/1),

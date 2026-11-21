@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2016  # backticks in messages are prose, not expansions
-# setup.sh — one-command bootstrap for the swamp + bd coexistence layout.
+# setup-swamp-beads.sh — one-command bootstrap for the swamp + bd coexistence layout.
 #
 # Design: ONE instruction file. `AGENTS.md` holds everything (swamp's managed
 # block, beads' managed block, your contract). `CLAUDE.md` is a one-line
@@ -26,7 +26,7 @@
 # overwrites AGENTS.md or a CLAUDE.md that already includes it.
 #
 # Usage:
-#   scripts/setup.sh [options]
+#   scripts/setup-swamp-beads.sh [options]
 #
 # Options:
 #   --profile <name>    beads agent profile: conservative | minimal | team-maintainer
@@ -75,7 +75,7 @@ run()  {
 die() { printf 'setup: %s\n' "$*" >&2; exit 1; }
 
 usage() {
-  awk '/^# setup\.sh/{p=1} /^set -euo pipefail/{p=0} p' "${BASH_SOURCE[0]}" \
+  awk '/^# setup-swamp-beads\.sh/{p=1} /^set -euo pipefail/{p=0} p' "${BASH_SOURCE[0]}" \
     | sed 's/^# \{0,1\}//'
 }
 

@@ -7,7 +7,7 @@
 > nothing to disable and no false "bypass" signal.
 >
 > Everything below applies **only if you enroll claude**
-> (`swamp repo upgrade --tool claude` or `scripts/setup.sh --tool claude --tool
+> (`swamp repo upgrade --tool claude` or `scripts/setup-swamp-beads.sh --tool claude --tool
 > codex`). That is the configuration where the hooks exist, cost a binary spawn
 > per Bash call, and mislabel `bd` as a bypass.
 
@@ -87,7 +87,7 @@ Until that lands, the honest options are:
 2. **Enroll claude, hooks on** when you want a compliance record for a session
    (`scripts/audit-hook.sh enable`, run your work, `disable` after — or leave
    them on and accept `bd` showing up as `direct`).
-3. **Enroll claude, hooks off** (`scripts/setup.sh --tool claude --tool codex`
+3. **Enroll claude, hooks off** (`scripts/setup-swamp-beads.sh --tool claude --tool codex`
    does this for you, or run `scripts/audit-hook.sh disable`). You keep claude's
    pre-approved `swamp` Bash permissions without the per-call recording.
 
@@ -110,12 +110,12 @@ back. Habit:
 
 ```bash
 swamp repo upgrade --tool claude && scripts/audit-hook.sh status
-# or simply: scripts/setup.sh   (idempotent; disables them again)
+# or simply: scripts/setup-swamp-beads.sh   (idempotent; disables them again)
 ```
 
 If you switch to the codex target (`swamp repo upgrade --tool codex`), swamp
 can no longer record anything (it reports `supported: false`), but stale hooks
-may survive the switch — `scripts/setup.sh` removes them. The script's
+may survive the switch — `scripts/setup-swamp-beads.sh` removes them. The script's
 `status` will still work either way.
 
 ## Global variant

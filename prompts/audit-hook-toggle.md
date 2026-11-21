@@ -9,7 +9,7 @@ installs no per-command hooks at all — `swamp audit --json` reports
 `supported: false`. In that state there is nothing to disable, and
 `scripts/audit-hook.sh status` saying "no settings file" is correct. These
 prompts matter once claude is enrolled (`swamp repo upgrade --tool claude`, or
-`scripts/setup.sh --tool claude --tool codex`).
+`scripts/setup-swamp-beads.sh --tool claude --tool codex`).
 
 ---
 

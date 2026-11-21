@@ -22,5 +22,5 @@
 .codex/
 .cursor/
 
-# setup.sh repair backups (safe to delete)
+# setup-swamp-beads.sh repair backups (safe to delete)
 *.pre-setup.bak
